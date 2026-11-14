@@ -1,66 +1,79 @@
-Here is the final, complete README.md for your project. I have updated it to reflect all the exact architectural choices, bug fixes, and specific model requirements (openai/gpt-oss-120b) we implemented to ensure you pass the grading criteria flawlessly.
+# TwinMind Live Copilot
 
-Create a file named README.md in the root of your project and paste this in:
+A real-time meeting copilot. It listens through your microphone, transcribes the conversation in 30-second chunks, and keeps surfacing three context-aware suggestions you can act on mid-meeting. Click any suggestion for a detailed, streamed answer, or ask your own questions in the chat panel.
 
-TwinMind Live Suggestions Copilot
-A real-time AI meeting copilot that listens to browser audio, transcribes it, and continuously surfaces actionable, context-aware suggestions. Built for the TwinMind full-stack engineering assignment.
+**[Live demo](https://twinmind-copilot-seven.vercel.app)** · bring your own [Groq API key](https://console.groq.com/keys)
 
-🚀 Quick Start
-Clone the repository
+![Next.js](https://img.shields.io/badge/Next.js_14-000000?style=flat&logo=nextdotjs&logoColor=white)
+![React](https://img.shields.io/badge/React_18-20232A?style=flat&logo=react&logoColor=61DAFB)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-0F172A?style=flat&logo=tailwindcss&logoColor=38BDF8)
+![Groq](https://img.shields.io/badge/Groq-F55036?style=flat)
 
-Bash
-git clone <your-repo-url>
+## Features
+
+- **Live transcription:** microphone audio is chunked every 30 seconds and transcribed with Whisper large-v3.
+- **Rolling suggestions:** after each chunk, the model returns exactly three complementary cards (`question`, `talking_point`, `answer`, `fact_check` or `clarify`), grounded in the most recent slice of the transcript.
+- **Deep dive on click:** clicking a card streams a detailed answer that uses the card's hidden "coach notes" and a longer transcript window.
+- **Chat:** ask follow-up questions with the transcript as context. Responses stream token by token.
+- **Manual refresh:** flush the in-progress audio chunk early instead of waiting for the 30-second boundary.
+- **Editable prompts:** every system prompt, context-window size and temperature can be changed in Settings and is saved in `localStorage`.
+- **Session export:** download the transcript, every suggestion batch and the chat history as JSON.
+
+## How it works
+
+```
+Browser                                       Next.js API routes            Groq
+───────                                       ──────────────────            ────
+MediaRecorder (30 s timeslice) ── audio ────▶ /api/transcribe ──────────▶ whisper-large-v3
+        │                                            │
+        ▼                                            ▼
+transcript chunks ── last 200 words ────────▶ /api/suggest ─── JSON ─────▶ openai/gpt-oss-120b
+        │                                            │
+        ▼                                            ▼
+suggestion card / chat ── last 1.4–2.2k words ▶ /api/chat ─── stream ────▶ openai/gpt-oss-120b
+```
+
+- **Audio capture** uses the native `MediaRecorder` API with a 30-second timeslice, so chunking happens without blocking the UI thread. Stopping the mic stops every track on the stream, so the browser's recording indicator turns off.
+- **Context windows are sized per task.** Suggestions only see the last 200 words, which keeps them fast and focused on what was just said. Chat sees about 1,400 words, and a clicked suggestion sees about 2,200. All three are configurable.
+- **Structured output.** `/api/suggest` uses Groq's `json_object` response format, strips stray code fences, and normalizes the result to exactly three cards. If the model returns fewer, it pads with a fallback card, so the UI never breaks.
+- **Streaming.** `/api/chat` forwards the model's token stream through a `ReadableStream`, and the client renders it incrementally.
+- **State** lives in plain React hooks (`useState`, `useRef`, `useCallback`). No external state library.
+
+## Running locally
+
+Requires Node.js 18+ and a [Groq API key](https://console.groq.com/keys).
+
+```bash
+git clone https://github.com/aniketmurkutkar/twinmind-copilot.git
 cd twinmind-copilot
-Install dependencies
-
-Bash
 npm install
-Run the development server
-
-Bash
 npm run dev
-Usage: Open http://localhost:3000. Enter your personal Groq API key on the welcome screen (it is stored safely in local React state and never persisted or shipped). Click the Start Mic button to begin the live session.
+```
 
-🏗️ Stack Choices & Architecture
-Framework: Next.js 14 (App Router). Chosen to colocate the frontend UI with secure serverless API routes (/api/transcribe, /api/suggest, /api/chat). This prevents CORS issues and keeps the prompt logic hidden from the client.
+Open http://localhost:3000, paste your Groq key, and click **Start Mic**.
 
-Audio Capture: Native Browser MediaRecorder API. Instead of complex Web Audio API buffers, I utilized MediaRecorder with a 30-second timeslice. This automatically chunks the audio without blocking the main browser UI thread.
+### About your API key
 
-AI SDK: Official groq-sdk. Used on the Node.js server to reliably handle multipart/form-data audio file parsing and streaming chat responses.
+The key is held only in React state for the current tab. It is never written to storage and disappears on reload. Each request sends it to this app's own API routes, which forward it to Groq and don't store or log it.
 
-Styling: Tailwind CSS for rapid prototyping of the 3-column layout to match the provided prototype.
+## Project structure
 
-🧠 Model Selection & Prompt Engineering
-As per the assignment requirements, all intelligence runs through Groq.
+```
+app/
+├── page.js                  # Dashboard: transcript, suggestions and chat columns
+├── api/
+│   ├── transcribe/route.js  # Audio chunk → Whisper transcription
+│   ├── suggest/route.js     # Transcript slice → 3 JSON suggestions
+│   └── chat/route.js        # Streaming chat / deep-dive answers
+├── hooks/useAudioRecorder.js  # MediaRecorder lifecycle + early flush
+├── components/SettingsModal.js
+└── lib/
+    ├── defaultSettings.js   # Default prompts, context sizes, temperatures
+    └── settingsStorage.js   # localStorage persistence
+```
 
-1. Transcription (whisper-large-v3)
+## Limitations and next steps
 
-The client records audio chunks and sends a FormData payload to the backend. The Next.js API enforces the whisper-large-v3 model parameter server-side before passing it to the Groq SDK, ensuring high-speed, accurate transcription.
-
-2. Live Suggestions (openai/gpt-oss-120b)
-
-Context Window: Passing the entire meeting history every 30 seconds wastes tokens and degrades latency. The client strictly slices the last ~150 words of the transcript to send to the suggestions endpoint, keeping the AI hyper-focused on the immediate conversational context.
-
-Prompt Strategy: The system prompt forces a strict JSON schema using Groq's json_object response format. It constrains the 120B model to categorize its output into specific actionable types (clarification, talking_point, fact_check, answer).
-
-Safety Net: The backend implements a regex cleaner to strip markdown code blocks (e.g., ```json) if the model hallucinates formatting, preventing JSON.parse() crashes.
-
-3. Detailed Chat (openai/gpt-oss-120b)
-
-Streaming Context: When a suggestion is clicked or a question is typed, the chat route receives the full transcript and the user's chat history. It uses ReadableStream and TextEncoder to stream the model's response back to the UI token-by-token, bringing the perceived latency (Time-to-First-Token) down to milliseconds.
-
-⚖️ Tradeoffs & Technical Decisions
-Client-Side vs. Server-Side Audio: I chose to process the audio chunks on the client into Blob/File objects and send them via FormData to the Next.js API. This keeps the client lightweight while allowing the server to handle the API keys securely.
-
-Browser Microphone Lifecycle: A common pitfall in browser audio is leaving the microphone tracks "hot" after stopping. The useAudioRecorder hook explicitly iterates over stream.getTracks() and calls .stop() to ensure user privacy and remove the browser's red recording indicator.
-
-React State Management: Avoided heavy external state managers (Redux/Zustand) in favor of clean, native React hooks (useState, useCallback, useRef) to manage the arrays for transcripts, suggestion batches, and chat history.
-
-🔮 Future Improvements for Production
-If scaling this to millions of users, I would implement the following:
-
-WebSockets/gRPC: Replace the 30-second REST API chunking with a continuous WebSocket stream to a backend service for true sub-second real-time transcription.
-
-Vector Database (RAG): Instead of passing the entire transcript to the chat window as it gets infinitely long, I would chunk the historical transcript into a vector store to retrieve only the relevant past moments.
-
-Speaker Diarization: Enhancing the Whisper pipeline to detect "Speaker A" and "Speaker B" would vastly improve the model's ability to suggest counter-arguments and contextual fact-checks.
+- **Latency floor:** 30-second REST chunks mean suggestions lag the conversation. Streaming audio over a WebSocket would allow near-real-time transcription.
+- **No speaker labels:** adding diarization ("Speaker A / B") would make suggestions such as counter-arguments much sharper.
+- **Long meetings:** chat currently sends the most recent window of the transcript. Retrieving relevant earlier moments from a vector index would help in long sessions.
