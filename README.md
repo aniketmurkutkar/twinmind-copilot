@@ -77,3 +77,7 @@ app/
 - **Latency floor:** 30-second REST chunks mean suggestions lag the conversation. Streaming audio over a WebSocket would allow near-real-time transcription.
 - **No speaker labels:** adding diarization ("Speaker A / B") would make suggestions such as counter-arguments much sharper.
 - **Long meetings:** chat currently sends the most recent window of the transcript. Retrieving relevant earlier moments from a vector index would help in long sessions.
+
+## License
+
+[MIT](LICENSE) © 2026 Aniket Murkutkar
