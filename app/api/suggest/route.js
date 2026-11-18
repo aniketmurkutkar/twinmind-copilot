@@ -58,7 +58,8 @@ export async function POST(req) {
       temperature: typeof temperature === 'number' ? temperature : 0.35,
     });
 
-    let rawContent = chatCompletion.choices[0]?.message?.content || '{}';
+    const originalContent = chatCompletion.choices[0]?.message?.content || '{}';
+    let rawContent = originalContent.trim();
 
     if (rawContent.startsWith('```json')) {
       rawContent = rawContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
@@ -66,7 +67,13 @@ export async function POST(req) {
       rawContent = rawContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
     }
 
-    const result = JSON.parse(rawContent);
+    let result;
+    try {
+      result = JSON.parse(rawContent);
+    } catch (parseError) {
+      console.error('Suggestion JSON parse failed:', parseError.message, '\nRaw output:', originalContent);
+      result = {};
+    }
     const suggestions = normalizeSuggestions(result);
 
     return NextResponse.json({ suggestions });
