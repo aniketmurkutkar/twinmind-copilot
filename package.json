@@ -6,7 +6,8 @@
       "dev": "next dev",
       "build": "next build",
       "start": "next start",
-      "lint": "next lint"
+      "lint": "next lint",
+      "test": "vitest run"
     },
     "dependencies": {
       "groq-sdk": "^0.3.3",
@@ -19,6 +20,7 @@
       "eslint": "^8",
       "eslint-config-next": "14.2.3",
       "postcss": "^8.4.38",
-      "tailwindcss": "^3.4.3"
+      "tailwindcss": "^3.4.3",
+      "vitest": "^3.2.7"
     }
   }
