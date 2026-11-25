@@ -4,6 +4,7 @@ A real-time meeting copilot. It listens through your microphone, transcribes the
 
 **[Live demo](https://twinmind-copilot-seven.vercel.app)** · bring your own [Groq API key](https://console.groq.com/keys)
 
+[![CI](https://github.com/aniketmurkutkar/twinmind-copilot/actions/workflows/ci.yml/badge.svg)](https://github.com/aniketmurkutkar/twinmind-copilot/actions/workflows/ci.yml)
 ![Next.js](https://img.shields.io/badge/Next.js_14-000000?style=flat&logo=nextdotjs&logoColor=white)
 ![React](https://img.shields.io/badge/React_18-20232A?style=flat&logo=react&logoColor=61DAFB)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-0F172A?style=flat&logo=tailwindcss&logoColor=38BDF8)
